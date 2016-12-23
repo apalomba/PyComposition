@@ -1,10 +1,3 @@
-try:
-    import psyco
-    psyco.full()
-    print 'Imported pscyo.'
-except:	
-    print 'Failed to import psyco.'
-
 import thread
 import threading
 import uuid
