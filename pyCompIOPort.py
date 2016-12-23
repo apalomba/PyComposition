@@ -1,12 +1,65 @@
-import pypm as portmidi
+try:
+    import pyportmidi as portmidi
+except:
+    print 'Failed to import portmidi'
+try:
+    import csnd6
+except:	
+    print 'Failed to import csnd6.'
 import time
 import EventScheduler
-#from pyCompLib import *
 import threading
 import Queue    
+import datetime
+
 
 INPUT=0
 OUTPUT=1
+
+defaultCSD = '''<CsoundSynthesizer>
+<CsOptions>
+; Select audio/midi flags here according to platform
+;-odac0         ;; -iadc         ;;;RT audio I/O
+</CsOptions>
+<CsInstruments>
+
+; Initialize the global variables.
+	sr	= 44100
+	kr	= 4410
+	ksmps	= 10
+	nchnls	= 1
+
+; Instrument #1.
+	instr 1
+kamp 	=	31129.60
+kfreq 	=	440
+krat	= 	0.127236
+kvibf 	=	6.12723
+ifn 	=	1
+
+; Create an amplitude envelope for the vibrato.
+kenv 	linseg 0, 0.15, 1, p3-0.4, 1, 0.25, 0
+kv 	linseg	0, 0.5, 0, 1, 1, p3-0.5, 1
+kvamp 	=	kv * 0.01
+
+a1 	oscili	kamp*kenv, kfreq, 1
+	out	a1 * 0.5
+	endin
+
+
+</CsInstruments>
+<CsScore>	
+
+; Table #1, a sine wave.
+f	1	0	128	10	1	
+f 0 3600	;'DUMMY' SCORE EVENT KEEPS REALTIME PERFORMANCE GOING FOR 1 HOUR
+; Play Instrument #1 for two seconds.
+;i	1	0	5	
+e	
+
+
+</CsScore>
+</CsoundSynthesizer>'''
 
 def ms(interval):
     ''' convert sec to ms '''    
@@ -267,8 +320,8 @@ class MIDIStreamRT(threading.Thread):
     def ProcessQ(self):
         # get current time
 
+	currentTime = self.port.GetTime()
         #print '+++ MIDIStream: ProcessQ ({0})\n'.format(portmidi.Time())
-        currentTime = portmidi.Time()
 
         # go through our midi event queue and sent messages that need to go 
         self.lock.acquire()
@@ -304,6 +357,8 @@ class MIDIStreamRT(threading.Thread):
         noteOn = NoteParams(key, amp, chan)
         self.port.NoteOut(noteOn)     # send note on 
 
+	#print '+++ MIDIStreamRT: NoteEvent ({0}, {1}, {2}, {3})\n'.format(time, key, amp, dur)
+
         #add note off
         event = NoteParams(key, 0, chan)
         eventList = [time + EventScheduler.sec2ms(dur), 0, event]
@@ -313,7 +368,6 @@ class MIDIStreamRT(threading.Thread):
         
     def NoteEvent2(self, key  = 60, amp  = 100, dur  = .5, chan  = 0):
         '''' will send a note out using the event scheduler. dur is in seconds. dur  = .5, key  = 60, amp  = .5, chan  = 0 '''
-        #timestamp = portmidi.Time()
         timestamp = self.port.GetTime()
         self.NoteEvent(timestamp, key, amp, dur, chan)
         
@@ -329,17 +383,103 @@ class MIDIStreamRT(threading.Thread):
     def WaitForStreamEnd(self):
             while(self.isComplete() == False):
                 time.sleep(.20)
-                          
+       
+#//////////////////////////////////////////////////////////////////////////////   
+class MessageStreamRT(threading.Thread):
+    def __init__(self, Port):
+	''' MIDIStreamRT: (Port: midi port to use, realTime: process events in real time. Supports concurrent notes.)'''
+	threading.Thread.__init__(self)       
+	self.port = Port  # reference to the port we will be using for output
+	self.midiEventQ = MIDIEventQueue()
+	self.bStop = False
+	self.lastEvent = None
+	self.lock = threading.BoundedSemaphore() #used to synchronize access to queue
+	
+    def run(self):     
+	''' this is our event thread, it process all our midi events'''
+	#print 'MIDIStreamRT: run thread ({0})...'.format(self.port .GetTime())
+	while (self.bStop == False):
+	    self.ProcessQ()
+	    time.sleep(EventScheduler.ms2sec(10))# sleep 
+		    
+    def ProcessQ(self):
+	# get current time
+
+	currentTime = self.port.GetTime()
+	#print '+++ MIDIStream: ProcessQ ({0})\n'.format(currentTime)
+
+	# go through our midi event queue and sent messages that need to go 
+	self.lock.acquire()
+	while(True):
+	    event = self.midiEventQ.GetFirstEvent()
+	    if(event == None):
+		break #queue is empty
+	    
+	    noteTime = event[eEventParams.TIME]            
+	    if(noteTime <= currentTime):
+		params = event[eEventParams.NOTE_PARAMS]    
+		self.port.NoteOut(params)     # send event 
+		self.midiEventQ.RemoveEvent()
+	    else:
+		break # no need to continue
+	self.lock.release()
+    
+    def Start(self):
+	bStop = False
+	#print 'MIDIStreamRT: start thread ({0})'.format(self.port .GetTime())
+	self.start()    
+	
+	
+
+    def Stop(self):
+	self.Flush()
+	self.bStop = True  
+	#print 'MIDIStreamRT: stop thread ({0}), Q: {1}'.format(self.port .GetTime(), self.midiEventQ.Count())
+	
+    def NoteEvent(self, time = 0.0, key  = 60, amp  = 100, dur  = .5, chan  = 0):
+	'''' will send a note out using the event scheduler. dur is in seconds
+	time(ms) = 0.0, dur  = .5, key  = 60, amp  = .5, chan  = 0 '''
+	
+	#print '+++ MIDIStreamRT: NoteEvent ({0}, {1}, {2}, {3})\n'.format(time, key, amp, dur)
+
+	noteOn = NoteParams(key, amp, chan)
+	self.port.NoteOut(noteOn)     # send note on 
+
+	#add note off
+	event = NoteParams(key, 0, chan)
+	eventList = [time + EventScheduler.sec2ms(dur), 0, event]
+	self.lock.acquire()
+	self.midiEventQ.AddEventTimeSorted(eventList)        
+	self.lock.release()
+	
+    def NoteEvent2(self, key  = 60, amp  = 100, dur  = .5, chan  = 0):
+	'''' will send a note out using the event scheduler. dur is in seconds. dur  = .5, key  = 60, amp  = .5, chan  = 0 '''
+	timestamp = self.port.GetTime()
+	self.NoteEvent(timestamp, key, amp, dur, chan)
+	
+    def ControlEvent(self, time = 0, ctrl  = 32, val = 127, chan  = 0):    
+	pass
+		    
+    def Flush(self):
+	pass
+    
+    def isComplete(self):
+	return self.midiEventQ.isEmpty()
+    
+    def WaitForStreamEnd(self):    
+	while(self.isComplete() == False):
+	    time.sleep(.20)	
+			
 #//////////////////////////////////////////////////////////////////////////////
 class IOPort():   
     """ Base class of our output port """
     def __init__(self, portType):
-        #if(property == ePortType.MIDI):
-	    #self = MIDIPort()
-	#elif (property == ePortType.CSOUND):
-	    #self = CSoundPort()
-	#else:
-	    #raise Exception('Unknown i/o port specified')
+	if(property == ePortType.MIDI):
+	    self = MIDIPort()
+	elif (property == ePortType.CSOUND):
+	    self = CSoundPort()
+	else:
+	    raise Exception('Unknown i/o port specified')
 	pass
     
     def Open(self):
@@ -354,8 +494,8 @@ class MIDIPort(IOPort):
     def __init__(self):
         self.currentMidiPort = 0 # should be MS MIDI Mapper
         self.latency = 0 # used by pypm to specify MIDI latecny, does not seem to have any effect
-        self.midiOut = None 
-        portmidi.Initialize() # always call this first, or OS may crash when you try to open a stream
+        self.midiOut = None 	
+        portmidi.init() # always call this first, or OS may crash when you try to open a stream
         self.bOpen = False
 
     def __del__(self):
@@ -364,19 +504,22 @@ class MIDIPort(IOPort):
     
     # opens MIDI ports with specified name 
     def OpenNamed(self, portName):
-	for loop in range(portmidi.CountDevices()):
-	    interf,name,inp,outp,opened = portmidi.GetDeviceInfo(loop)
+	for loop in range(portmidi.get_count()):
+	    interf,name,inp,outp,opened = portmidi.get_device_info(loop)
 	    if ((outp ==1) & (name == portName)):
 		self.currentMidiPort = loop
 		self.midiOut = portmidi.Output(self.currentMidiPort, self.latency)
 		print "MIDIPort:Open"
 		break;
 	    
+	if(self.midiOut == None):
+	    raise Exception("Could not open specified MIDI port")
+	
         self.bOpen = True      
         
     def Open(self, portNum = 0):
         
-        if(portNum >= portmidi.CountDevices()):
+        if(portNum >= portmidi.get_count()):
             print "Specified midi port is beyond physical range." 
             return
          
@@ -384,6 +527,10 @@ class MIDIPort(IOPort):
         if(self.midiOut == None):
             self.midiOut = portmidi.Output(self.currentMidiPort, self.latency)
             print "MIDIPort:Open"
+	    
+	if(self.midiOut == None):
+	    raise Exception("Could not open specified MIDI port")
+	    
         self.bOpen = True
         
 
@@ -391,14 +538,14 @@ class MIDIPort(IOPort):
         
         if(self.midiOut != None):
             del self.midiOut
-            portmidi.Terminate()           
+            portmidi.quit()           
             print "MIDIPort:Close"   
         self.bOpen = False
             
 
     def PrintDevices(self, InOrOut):
-        for loop in range(portmidi.CountDevices()):
-            interf,name,inp,outp,opened = portmidi.GetDeviceInfo(loop)
+        for loop in range(portmidi.get_count()):
+            interf,name,inp,outp,opened = portmidi.get_device_info(loop)
             if ((InOrOut == INPUT) & (inp == 1) | (InOrOut == OUTPUT) & (outp ==1)):
                 print loop, name," ",
                 if (inp == 1): print "(input) ",
@@ -413,16 +560,16 @@ class MIDIPort(IOPort):
         
     def NoteOut(self, params):
         '''' this will send a note out our midi port'''
-        timestamp = portmidi.Time()
-        #print 'NoteOut: {0}, {1}'.format(timestamp, params.Print())
+        timestamp = portmidi.time()
+        print 'NoteOut: {0}, {1}'.format(timestamp, params.Print())
         #self.midiOut.Write([[[0x90, params.key, params.vel], timestamp]])     # send note    
-        self.midiOut.WriteShort(0x90, (int)(params.key), (int)(params.vel))
+        self.midiOut.write_short(0x90, (int)(params.key), (int)(params.vel))
         
     def CtrlOut(self):
         pass
 
     def GetTime(self):
-        return portmidi.Time()
+        return portmidi.time()
     
     
  #//////////////////////////////////////////////////////////////////////////////
@@ -476,57 +623,58 @@ class CSoundPort(IOPort):
         self.latency = 1000 # used by pypm to specify MIDI latecny, does not seem to have any effect
         self.midiOut = None 
 	self.pyext = None #if we are in a Max environment, this will be set to pyext.MaxPyExt()
-	portmidi.Initialize() # always call this first, or OS may crash when you try to open a stream
+	self.csound = csnd6.Csound()
+	self.startTime = datetime.datetime.now()
+	self.performance = None
 	
-    def Open(self):
+    def Open(self, csdFile):
         print "CSoundPort:Open"
-        pass
+	self.startTime = datetime.datetime.now()	
+	if(csdFile is None):
+	    res = self.csound.CompileCsdText(defaultCSD)
+	else:
+	    res = self.csound.Compile(csdFile)
+	    
+	self.performance = csnd6.CsoundPerformanceThread(self.csound)
+	self.csound.Start()
+	self.performance.Play()
 
     def Close(self):
         print "CSoundPort:Close"        
-        portmidi.quit()
-        
+	self.performance.Stop()
+	self.performance.Join()    
+	self.csound.Stop()
+	
     def PrintDevices(self, InOrOut):
-        pass
-    
-    def SetPortID(self, portID):
-        pass
+        print csnd6.version_info
     
     def NoteOut(self, params):
-        '''' this will send a note out our midi port'''
-        timestamp = portmidi.Time() #use portMidi for timing
-        #print 'NoteOut: {0}, {1}'.format(timestamp, params.Print())
-        #self.midiOut.Write([[[0x90, params.key, params.vel], timestamp]])     # send note    
-        #self.midiOut.WriteShort(0x90, (int)(params.key), (int)(params.vel))
-        noteStr = 'note {0} {1} {2}'.format(params.key, params.vel, params.chan)
-        #self._outlet(1, noteStr)
-	if(self.pyext != None):
-	    self.pyext.NoteOut(noteStr)
-	else:
-	    print 'note: {0}'.format(noteStr)
-	
+        '''' this will send a note to our csound port'''
+	timestamp = self.GetTime()
+	#print 'CSoundPort:NoteOut {0}, {1}'.format(timestamp, params.Print())
+	self.csound.InputMessage("i1 0 .5")		
 	
     def CtrlOut(self, params):
-	timestamp = portmidi.Time() #use portMidi for timing
+	timestamp = self.port.GetTime() #use portMidi for timing
 	ctrlStr = 'note {0} {1} {2}'.format(params.ctrl, params.data, params.chan)
 	if(self.pyext != None):
 	    self.pyext.Write([[[eMidiCommands.CNTRL, params.ctrl, params.data], timestamp]])     # send control    
 	else:
 	    print 'control: {0}'.format(ctrlStr)
 
-    def GetTime(self):
-        return portmidi.Time()
  
-    
+    def GetTime(self):
+	deltaTime = datetime.datetime.now() - self.startTime
+	return deltaTime.total_seconds()*1000
+	
 #//////////////////////////////////////////////////////////////////////////////
-def TestPolyphony(port):
+def TestMidiPolyphony(port):
     midiStream = MIDIStreamRT(port)    
     note = midiStream.NoteEvent2
 
     midiStream.Start()
     
     for i in range(0, 3):
-	#PlayChord([60, 64, 67], 100, 1)
         note(60, 100, 1, 1)
         note(64, 100, 1, 1)
         note(67, 100, 1, 1)
@@ -536,7 +684,22 @@ def TestPolyphony(port):
     midiStream.Stop()    
     
     
+#//////////////////////////////////////////////////////////////////////////////
+def TestCsoundPolyphony(port):
+    msgStream = MessageStreamRT(port)    
+    note = msgStream.NoteEvent2
 
+    msgStream.Start()
+    
+    for i in range(0, 3):
+        note(60, 100, 1, 1)
+        note(64, 100, 1, 1)
+        note(67, 100, 1, 1)
+        time.sleep(2)
+    
+    msgStream.WaitForStreamEnd()
+    msgStream.Stop()    
+    
 def TestNotes(midiPort):
     
     midiStream = MIDIStream(midiPort)    
@@ -556,27 +719,38 @@ def TestNotes(midiPort):
 def TimingTest(midiPort):
     print "start: {0}".format(midiPort.GetTime())
     for x in range(10):
-        #time.sleep(sec(400))
+        time.sleep(1)
         print midiPort.GetTime()
     
 
-if __name__ == '__main__':
+def TestMidiPort():
+    midiPort = MIDIPort()    
+    midiPort.PrintDevices(OUTPUT)
+    TimingTest(midiPort)
+    
+    midiPort.OpenNamed("IAC Driver Virtual MIDI Port 1")
+    TestMidiPolyphony(midiPort)
+    midiPort.Close()    
 
-    testCase = 0
-    if(testCase == 0):
-        midiPort = MIDIPort()    
-        midiPort.PrintDevices(OUTPUT)
-        midiPort.OpenNamed("IAC Driver Virtual MIDI 1")
+def TestCSoundPort():
+    csport = CSoundPort()    
+    #csport.Open(None)
+    csport.Open("pytest3.csd")
+    TestCsoundPolyphony(csport)
+    csport.Close()   
+
+#//////////////////////////////////////////////////////////////////////////////
+
+if __name__ == '__main__':
         
-        TestPolyphony(midiPort)
-        #TestNotes(midiPort)
-        #TimingTest(midiPort)    
-        midiPort.Close()    
+    testCase = '0'
+    print 'IO Port Test'
+    testCase = raw_input("Select 1:MIDI port, 2:Csound port... ")
+    
+    if(testCase == '1'):
+	TestMidiPort()   
     else:
-        maxPort = MaxPort()
-        maxPort.Open()
-        TestPolyphony(maxPort)
-        maxPort.Close()
+	TestCSoundPort()	
         
     print("test complete.")
 
