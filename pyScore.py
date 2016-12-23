@@ -44,9 +44,9 @@ class ScoreEnvironment(object):
 @ spawn
 def testChords(elapsedTime, length):
     if (elapsedTime < length):
-        note(63, between(70, 100), 0.25)
-        note(65, between(70, 100), 0.25)
-        note(68, between(70, 100), 0.25)
+        theScore.noteOut(63, between(70, 100), 0.25)
+        theScore.noteOut(65, between(70, 100), 0.25)
+        theScore.noteOut(68, between(70, 100), 0.25)
         return 0.25
     return DONE        
 
@@ -57,7 +57,6 @@ if __name__ == '__main__':
     theScore = ScoreEnvironment()
     theScore.OpenMidiPort(4)
     theScore.OpenStream()
-    note = theScore.noteOut
 
     # play our gesture
     elapsedTime = 0; 
