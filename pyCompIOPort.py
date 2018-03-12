@@ -1,7 +1,7 @@
 try:
-    import pyportmidi as portmidi
+    import rtmidi    
 except:
-    print 'Failed to import portmidi'
+    print 'Failed to import rtmidi'
 try:
     import csnd6
 except:	
@@ -494,82 +494,71 @@ class MIDIPort(IOPort):
     def __init__(self):
         self.currentMidiPort = 0 # should be MS MIDI Mapper
         self.latency = 0 # used by pypm to specify MIDI latecny, does not seem to have any effect
-        self.midiOut = None 	
-        portmidi.init() # always call this first, or OS may crash when you try to open a stream
+        self.midiOut = rtmidi.MidiOut() 	
         self.bOpen = False
+	self.availablePorts = self.midiOut.get_ports()
+	self.startTime = datetime.datetime.now()
+	
 
     def __del__(self):
-        pass
+        del self.midiOut
       
     
     # opens MIDI ports with specified name 
     def OpenNamed(self, portName):
-	for loop in range(portmidi.get_count()):
-	    interf,name,inp,outp,opened = portmidi.get_device_info(loop)
-	    if ((outp ==1) & (name == portName)):
-		self.currentMidiPort = loop
-		self.midiOut = portmidi.Output(self.currentMidiPort, self.latency)
-		print "MIDIPort:Open"
+	portNum = 0
+	self.startTime = datetime.datetime.now()		
+	for systemPort in self.availablePorts:
+	    if systemPort == portName:
+		self.currentMidiPort = portNum
+		self.midiOut.open_port(portNum)
+		print "MIDIPort:Open " + systemPort
+		self.bOpen = True      		
 		break;
+	    portNum += 1
 	    
-	if(self.midiOut == None):
+	if(self.bOpen == False):
 	    raise Exception("Could not open specified MIDI port")
 	
-        self.bOpen = True      
         
     def Open(self, portNum = 0):
-        
-        if(portNum >= portmidi.get_count()):
+	self.startTime = datetime.datetime.now()	        
+        if(portNum >= len(self.availablePorts)):
             print "Specified midi port is beyond physical range." 
             return
          
         self.currentMidiPort = portNum
-        if(self.midiOut == None):
-            self.midiOut = portmidi.Output(self.currentMidiPort, self.latency)
-            print "MIDIPort:Open"
-	    
-	if(self.midiOut == None):
-	    raise Exception("Could not open specified MIDI port")
-	    
+	self.midiOut.open_port(portNum);
+	print "MIDIPort:Open"
         self.bOpen = True
         
 
     def Close(self):
         
         if(self.midiOut != None):
-            del self.midiOut
-            portmidi.quit()           
             print "MIDIPort:Close"   
         self.bOpen = False
             
 
     def PrintDevices(self, InOrOut):
-        for loop in range(portmidi.get_count()):
-            interf,name,inp,outp,opened = portmidi.get_device_info(loop)
-            if ((InOrOut == INPUT) & (inp == 1) | (InOrOut == OUTPUT) & (outp ==1)):
-                print loop, name," ",
-                if (inp == 1): print "(input) ",
-                else: print "(output) ",
-                if (opened == 1): print "(opened)"
-                else: print "(unopened)"
-        print
-         
+	for systemPort in self.availablePorts:
+	    print systemPort         
 
     def SetPortID(self, portID):
         self.currentMidiPort = portID
         
     def NoteOut(self, params):
         '''' this will send a note out our midi port'''
-        timestamp = portmidi.time()
-        print 'NoteOut: {0}, {1}'.format(timestamp, params.Print())
-        #self.midiOut.Write([[[0x90, params.key, params.vel], timestamp]])     # send note    
-        self.midiOut.write_short(0x90, (int)(params.key), (int)(params.vel))
-        
+        timestamp = self.GetTime()
+	note_message = [0x90, (int)(params.key), (int)(params.vel)] # channel 1, note, velocity
+	self.midiOut.send_message(note_message)
+	        
     def CtrlOut(self):
         pass
 
     def GetTime(self):
-        return portmidi.time()
+	deltaTime = datetime.datetime.now() - self.startTime
+	return deltaTime.total_seconds()*1000
     
     
  #//////////////////////////////////////////////////////////////////////////////
@@ -726,8 +715,6 @@ def TimingTest(midiPort):
 def TestMidiPort():
     midiPort = MIDIPort()    
     midiPort.PrintDevices(OUTPUT)
-    TimingTest(midiPort)
-    
     midiPort.OpenNamed("IAC Driver Virtual MIDI Port 1")
     TestMidiPolyphony(midiPort)
     midiPort.Close()    
