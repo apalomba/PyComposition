@@ -4,7 +4,7 @@ import EventScheduler
 from pyCompLib import *
 
 #////////////////////////////////////////////////////////////////////////////////////////////////
-class ScoreEnvironment(object):
+class Score(object):
     """ Holds common score environment variables """
     
     def __init__(self, port = None):
@@ -54,8 +54,8 @@ def testChords(elapsedTime, length):
 if __name__ == '__main__':
            
     #create out score env and bind it to our physical port
-    theScore = ScoreEnvironment()
-    theScore.OpenMidiPort(4)
+    theScore = Score()
+    theScore.OpenMidiPortNamed("IAC Driver Virtual MIDI Port 1")
     theScore.OpenStream()
 
     # play our gesture
