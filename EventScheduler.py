@@ -1,4 +1,3 @@
-import thread
 import threading
 import uuid
 import time
@@ -28,12 +27,12 @@ class eProcessType:
   
 
 
-class Process(threading._Timer):
+class Process(threading.Timer):
     '''class Process encapsulates a behavior that will run'''
   
     def __init__(self, *args, **kwargs):
         #print "Process: __init__"
-        threading._Timer.__init__(self, *args, **kwargs)
+        threading.Timer.__init__(self, *args, **kwargs)
         
         #ARGS: interval, process, args, kwargs
         # make copy of our args so we can modify it
@@ -87,7 +86,7 @@ class ProcessManager(object):
         
     def GetProcess(self, processID):
         ''' Returns pointer to a Process with the specified ID'''
-        if(processID > self.ProcessQ.count) :
+        if processID > self.ProcessQ.__len__():
             return None  
         return self.ProcessQ[processID-1]
     
@@ -95,8 +94,8 @@ class ProcessManager(object):
         ''' spawns a new thread for process with process ID '''
         #print 'Process: StartProcess'
         p = self.GetProcess(processID)
-        thread.start_new_thread(p.run, ())
-    
+        threading.Thread(target=p.run).start()
+
     def ResetProcess(self, processID):
         #print 'ResetProcess'
         p = self.GetProcess(processID)
@@ -122,7 +121,7 @@ class ProcessManager(object):
 #//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         
 def proc1(*args):
-    print "proc1: {0}".format(args[0])
+    print ("proc1: {0}".format(args[0]))
     return ms2sec(500)  #new wait time
 
 if __name__ == '__main__':
@@ -134,9 +133,9 @@ if __name__ == '__main__':
     
     pman = ProcessManager()
     pID = pman.AddProcess(proc1, 0, argList)    
-    print 'Process ID: %i' % pID
+    print ('Process ID: %i' % pID)
    
-    print ' Starting process...'
+    print (' Starting process...')
     pman.StartProcess(pID)
     
     count = 0
@@ -144,18 +143,18 @@ if __name__ == '__main__':
         time.sleep(1)
         count += 1
 
-    print 'Stopping process'
+    print ('Stopping process')
     
     pman.StopProcess(pID)
            
-    print 'Wait 3 seconds...'
+    print ('Wait 3 seconds...')
     
     count = 0
     while (count < 3):
         time.sleep(1)
         count += 1
 
-    print ' Starting process again...'
+    print (' Starting process again...')
     pman.ResetProcess(pID)
     pman.StartProcess(pID)
    
@@ -164,11 +163,11 @@ if __name__ == '__main__':
         time.sleep(1)
         count += 1
     
-    print ' Stopping process...'
+    print (' Stopping process...')
     pman.StopProcess(pID)
-    print ' test complete'
+    print (' test complete')
       
-    print ' Stopping process...'
+    print (' Stopping process...')
     pman.StopProcess(pID)
-    print ' test complete'
+    print (' test complete')
  
