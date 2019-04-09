@@ -34,7 +34,7 @@ class Score(object):
         procManager.StopAll()
         self.midiStream.Stop()
         self.port.Close()        
-        print 'Score finished'
+        print ('Score finished')
         
         
 #////////////////////////////////////////////////////////////////////////////////////////////////   
