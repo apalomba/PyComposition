@@ -1,6 +1,6 @@
 from scipy import interpolate ,random
 import numpy as np
-import thread
+import threading
 import time
 import EventScheduler
 from pyCompIOPort import *
@@ -78,7 +78,7 @@ class spawn(object):
         self.func = function
         
     def __call__(self,  *args):
-        print 'spawn: __call__ {0}{1}'.format(self.func.__name__, args)
+        print ('spawn: __call__ {0}{1}'.format(self.func.__name__, args))
         #self.func(args)
         self.pID = procManager.AddProcess(self.func, ms(1000), args)    
         procManager.StartProcess(self.pID)
@@ -87,18 +87,18 @@ class spawn(object):
 class sync(object):
     '''this is a function decorator that enables us to execute function and wait until it is completed'''
     def __init__(self, function):
-        print 'sync: __init__ {0}'.format(function.__name__)
+        print ('sync: __init__ {0}'.format(function.__name__))
         self.func = function
         
     def __call__(self,  *args):
-        print 'sync: __call__ {0}{1}'.format(self.func.__name__, args)
+        print ('sync: __call__ {0}{1}'.format(self.func.__name__, args))
         #self.func(args)
         self.pID = procManager.AddProcess(self.func, ms(1000), args)    
         procManager.StartProcess(self.pID)
         proc = procManager.GetProcess(self.pID)
         while(proc.WaitInterval != DONE):
             time.sleep(.25)
-        print 'sync: complete {0}{1}'.format(self.func.__name__, args)
+        print ('sync: complete {0}{1}'.format(self.func.__name__, args))
 
 #//////////////////////////////////////////////////////////////////////////////
 
@@ -130,7 +130,7 @@ def spawnGesture(elapsedTime, length, key, keyrange):
         m = int(k + noteInterval)
         note(m, amp, dur)
         
-        print 'interpGesture - Time: {0}, note: {1}, {2}' .format(midiPort.GetTime(), k, m)
+        print ('interpGesture - Time: {0}, note: {1}, {2}' .format(midiPort.GetTime(), k, m))
         return dur
     return DONE
 
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     
     midiPort = MIDIPort()    
     midiPort.PrintDevices(OUTPUT)
-    midiPort.Open(6)
+    midiPort.Open(1)
     
     midiStream = MIDIStreamRT(midiPort)
     midiStream.Start()
@@ -166,6 +166,5 @@ if __name__ == '__main__':
     midiStream.Stop()
     midiPort.Close()        
     
-    print 'Test complete'
+    print ('Test complete')
    
-    print 'Test complete'
