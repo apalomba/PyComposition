@@ -4,7 +4,7 @@ To Install:
 
 1. Install anaconda3 on your computer
 
-2. pyComposition uses python-rtmidi to send data to yoour computers midi port. You can find details here:
+2. pyComposition uses python-rtmidi to send data to your computers midi port. You can find details here:
 https://pypi.org/project/python-rtmidi/
 Installation can be done via the command line in anaconda using the pip command:
 pip install python-rtmidi
