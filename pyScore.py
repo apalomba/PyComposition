@@ -26,6 +26,9 @@ class Score(object):
         
     def noteOut(self, key  = 60, amp  = 100, dur  = .5, chan  = 0):
         self.midiStream.NoteEvent2(key, amp, dur, chan)
+
+    def controlOut(self, controlNum = 7, controlValue = 0):
+        self.midiStream.ControlEvent(0, controlNum, controlValue)
     
     def wait(self, length):
         time.sleep(length+1) 
@@ -50,7 +53,7 @@ def testChords(elapsedTime, length):
 
 if __name__ == '__main__':
            
-    #create out score env and bind it to our physical port
+    # create out score env and bind it to our physical port
     theScore = Score()
     theScore.OpenMidiPortNamed("IAC Driver Virtual MIDI Port 1")
     theScore.OpenStream()
@@ -60,6 +63,6 @@ if __name__ == '__main__':
     length = 5
     testChords(elapsedTime, length)
     
-    #wait for end and close
+    # wait for end and close
     theScore.wait(length+1) #wait for notes to finish playing
     theScore.Fin()
