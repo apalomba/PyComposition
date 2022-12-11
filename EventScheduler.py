@@ -1,5 +1,6 @@
 import threading
 import uuid
+import datetime
 import time
 
 totalTime = 0
@@ -28,18 +29,18 @@ class eProcessType:
 
 
 class Process(threading.Timer):
-    '''class Process encapsulates a behavior that will run'''
-  
+    '''class Process encapsulates a process that will run a specified function. '''
+
     def __init__(self, *args, **kwargs):
-        #print "Process: __init__"
-        threading.Timer.__init__(self, *args, **kwargs)
-        
-        #ARGS: interval, process, args, kwargs
-        # make copy of our args so we can modify it
+        # threading.Timer.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
+
+        # ARGS: interval, process, args, kwargs
         argCopy = []
         for arg in args:
-            argCopy.append(arg)
-            
+            argCopy.append(arg)     # make copy of our args so we can modify it
+
+
         self.WaitInterval = argCopy[0]
         self.args = TupleToList(argCopy[2]) #argCopy[2]
         self.ID = uuid.uuid1()
@@ -51,10 +52,10 @@ class Process(threading.Timer):
         while (self.bHalt != True):
             if not self.finished.isSet():
                 argTuple = tuple(self.args)
-                self.WaitInterval = self.function(*argTuple)                  # function should return a new wait time
-                self.elapsedTimed += self.WaitInterval                         # update accum time
-                self.args[0] = self.elapsedTimed                                  # notify process of elapsed time
-                if(self.WaitInterval == -1): # a wait time of -1 means that the process is done 
+                self.WaitInterval = self.function(*argTuple)      # execute our process, it should return a new wait time
+                self.elapsedTimed += self.WaitInterval            # update accum time
+                self.args[0] = self.elapsedTimed                  # notify process of elapsed time
+                if(self.WaitInterval == -1):                      # a wait time of -1 means that the process is done
                     self.finished.set()
                     return
                
@@ -121,8 +122,9 @@ class ProcessManager(object):
 #//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         
 def proc1(*args):
-    print ("proc1: {0}".format(args[0]))
-    return ms2sec(500)  #new wait time
+    #print ("proc1: {0}".format(args[0]))
+    print("proc1: " + datetime.datetime.now().strftime('%H:%M:%S.%f')[:-3])
+    return ms2sec(200)  #new wait time
 
 if __name__ == '__main__':
     # Print "Hello World!" every 1 seconds
