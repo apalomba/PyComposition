@@ -1,9 +1,9 @@
 from scipy import interpolate ,random
 import numpy as np
 import threading
-import time
+import datetime
 import EventScheduler
-from pyCompIOPort import *
+from pyCompStreams import *
 from EventScheduler import ms2sec, sec2ms
 from Patterns import *
 
@@ -19,9 +19,31 @@ normSpace = np.linspace(0.0, 1.0, 32)
 # global proc manager needed for spawn and sync        
 procManager = EventScheduler.ProcessManager()
 
+def PrintTime(str):
+    print(str + ": " + datetime.datetime.now().strftime('%H:%M:%S.%f')[:-3])
+
 def PlayChord(noteList, vel, dur):
     for k in noteList:
         note(k, vel, dur)
+
+# Converts MIDI note name to MIDI not number
+def MidiStringToInt(midstr):
+    midstr = midstr.upper()
+    Notes = [["C"], ["C#", "Db"], ["D"], ["D#", "Eb"], ["E"], ["F"], ["F#", "Gb"], ["G"], ["G#", "Ab"], ["A"],
+             ["A#", "Bb"], ["B"]]
+    answer = 0
+    i = 0
+    # Note
+    letter = midstr.split('-')[0].upper()
+    for note in Notes:
+        for form in note:
+            if letter.upper() == form:
+                answer = i
+                break;
+        i += 1
+    # Octave
+    answer += (int(midstr[-1])) * 12
+    return answer
 
 #//////////////////////////////////////////////////////////////////////////////
 # Probability
@@ -69,6 +91,12 @@ def wait (msDelay):
     ''' delay in miliseconds '''
     time.sleep(ms(msDelay))
 
+#//////////////////////////////////////////////////////////////////////////////
+class perfContext(object):
+    '''the performance context keeps track of any performance and execution related parameters'''
+    def __init__(self):
+        self.length = 0
+        self.elapsedTime = 0
         
 #//////////////////////////////////////////////////////////////////////////////
 class spawn(object):
