@@ -29,7 +29,7 @@ class MIDIStream(threading.Thread):
         if (event != None):
             self.midiEventQ.RemoveEvent()  # remove this event from queue
             dur = event[eEventParams.DUR]
-            params = event[eEventParams.NOTE_PARAMS]
+            params = event[eEventParams.EVENT_PARAMS]
             if (dur != 0):
                 self.midiPort.NoteOut(params)  # send event
                 threading._sleep(dur)  # go to sleep for duration of event
@@ -41,7 +41,7 @@ class MIDIStream(threading.Thread):
         if (event != None):
             time = event[eEventParams.TIME]
             dur = event[eEventParams.DUR]
-            params = event[eEventParams.NOTE_PARAMS]
+            params = event[eEventParams.EVENT_PARAMS]
             self.midiPort.NoteOut(params)  # send event
             self.midiEventQ.RemoveEvent()  # remove this event
             if (dur != 0):
@@ -77,8 +77,14 @@ class MIDIStream(threading.Thread):
         timestamp = self.midiPort.Time()
         self.NoteEvent(timestamp, key, amp, dur, chan)
 
-    def ControlEvent(self, time=0, ctrl=32, val=127, chan=0):
-        pass
+    def ControlEvent(self, time=0, ctrl=32, val=127, dur=.5, chan=0):
+        '''' will send a control event out using the event scheduler. dur is in seconds '''
+        timestamp = self.midiPort.GetTime()
+
+        # add control event on
+        event = ControlParams(ctrl, val, chan)
+        eventList = [time, dur, event]
+        self.midiEventQ.AddEvent(eventList)
 
     def SyncEventList(self):
         self.midiEventQ.SortEvents()
@@ -131,10 +137,16 @@ class MIDIStreamRT(threading.Thread):
             if (event == None):
                 break  # queue is empty
 
-            noteTime = event[eEventParams.TIME]
-            if (noteTime <= currentTime):
-                params = event[eEventParams.NOTE_PARAMS]
-                self.port.NoteOut(params)  # send event
+            eventTime = event[eEventParams.TIME]
+            if (eventTime <= currentTime):
+                params = event[eEventParams.EVENT_PARAMS]
+
+                # TODO: use lambda function so conditional is not required
+                if(params is NoteParams):
+                    self.port.NoteOut(params)  # send event
+                else:
+                    self.port.ControlOut(params)    # send control
+
                 self.midiEventQ.RemoveEvent()
             else:
                 break  # no need to continue
@@ -218,7 +230,7 @@ class MessageStreamRT(threading.Thread):
 
             noteTime = event[eEventParams.TIME]
             if (noteTime <= currentTime):
-                params = event[eEventParams.NOTE_PARAMS]
+                params = event[eEventParams.EVENT_PARAMS]
                 self.port.NoteOut(params)  # send event
                 self.midiEventQ.RemoveEvent()
             else:

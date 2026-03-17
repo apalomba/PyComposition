@@ -92,7 +92,7 @@ class eEventParams:
     '''Enum of note parameters'''
     TIME = 0
     DUR = 1
-    NOTE_PARAMS = 2
+    EVENT_PARAMS = 2
 
 
 # //////////////////////////////////////////////////////////////////////////////
@@ -112,12 +112,15 @@ class NoteParams:
 class ControlParams:
     """ encapsulates our control parameters """
 
-    def __init__(self):
-        self.ctrl = 32
-        self.data = 127
-        self.chan = 1
+    def __init__(self, ctrl, data, chan):
+        self.ctrl = ctrl
+        self.value = data
+        self.chan = chan
 
-    # //////////////////////////////////////////////////////////////////////////////
+    def Print(self):
+        return '(cntrl: {0}, value: {1}, chan: {2})'.format(self.ctrl, self.value, self.chan)
+
+# //////////////////////////////////////////////////////////////////////////////
 
 
 class MIDIEventQueue():
@@ -135,7 +138,7 @@ class MIDIEventQueue():
         bFound = False
 
         # go through and find where in time we should insert this note
-        noteParams = eventParams[eEventParams.NOTE_PARAMS]
+        noteParams = eventParams[eEventParams.EVENT_PARAMS]
         noteTime = eventParams[eEventParams.TIME]
         for ev in self.theQ:
             curTime = ev[eEventParams.TIME]
@@ -189,7 +192,7 @@ class MIDIEventQueue():
         for params in self.theQ:
             time = params[eEventParams.TIME]
             dur = params[eEventParams.DUR]
-            event = params[eEventParams.NOTE_PARAMS]
+            event = params[eEventParams.EVENT_PARAMS]
             # print "The sum of 1 + 2 is {0}".format(1+2)
             # print 'We are the {} who say "{}!"'.format('knights', 'Ni')
             print('time: {0},  dur:{1}, event: {2}'.format(time, dur, event.Print()))
@@ -289,8 +292,10 @@ class MIDIPort(IOPort):
         note_message = [0x90, (int)(params.key), (int)(params.vel)]  # channel 1, note, velocity
         self.midiOut.send_message(note_message)
 
-    def CtrlOut(self):
-        pass
+    def ControlOut(self, params):
+        timestamp = self.GetTime()
+        note_message = [0x90, (int)(params.key), (int)(params.vel)]  # channel 1, note, velocity
+        self.midiOut.send_message(note_message)
 
     def GetTime(self):
         deltaTime = datetime.datetime.now() - self.startTime
@@ -380,9 +385,9 @@ class CSoundPort(IOPort):
 
     def CtrlOut(self, params):
         timestamp = self.port.GetTime()  # use portMidi for timing
-        ctrlStr = 'note {0} {1} {2}'.format(params.ctrl, params.data, params.chan)
+        ctrlStr = 'note {0} {1} {2}'.format(params.ctrl, params.value, params.chan)
         if (self.pyext != None):
-            self.pyext.Write([[[eMidiCommands.CNTRL, params.ctrl, params.data], timestamp]])  # send control
+            self.pyext.Write([[[eMidiCommands.CNTRL, params.ctrl, params.value], timestamp]])  # send control
         else:
             print('control: {0}'.format(ctrlStr))
 
