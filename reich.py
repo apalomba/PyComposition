@@ -36,7 +36,7 @@ def MidiStringToInt(midstr):
     
 #create out score environment and bind it to our physical port
 theScore = Score()
-theScore.OpenMidiPortNamed("IAC Driver Virtual MIDI Port 1")
+theScore.OpenMidiPortNamed("IAC Driver Bus 1")
 theScore.OpenStream()
 
 note = theScore.noteOut #for convenience
