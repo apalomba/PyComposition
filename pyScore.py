@@ -38,7 +38,7 @@ class Score(object):
         self.midiStream.Stop()
         self.port.Close()        
         print ('Score finished')
-        
+    
         
 #////////////////////////////////////////////////////////////////////////////////////////////////   
 @ spawn
@@ -55,7 +55,7 @@ if __name__ == '__main__':
            
     # create out score env and bind it to our physical port
     theScore = Score()
-    theScore.OpenMidiPortNamed("IAC Driver Virtual MIDI Port 1")
+    theScore.OpenMidiPortNamed("IAC Driver Bus 1")
     theScore.OpenStream()
 
     # play our gesture
