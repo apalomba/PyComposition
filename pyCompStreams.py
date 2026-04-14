@@ -142,7 +142,7 @@ class MIDIStreamRT(threading.Thread):
                 params = event[eEventParams.EVENT_PARAMS]
 
                 # TODO: use lambda function so conditional is not required
-                if(params is NoteParams):
+                if(isinstance(params, NoteParams)):
                     self.port.NoteOut(params)  # send event
                 else:
                     self.port.ControlOut(params)    # send control
@@ -183,8 +183,10 @@ class MIDIStreamRT(threading.Thread):
         timestamp = self.port.GetTime()
         self.NoteEvent(timestamp, key, amp, dur, chan)
 
-    def ControlEvent(self, time=0, ctrl=32, val=127, chan=0):
-        pass
+    def ControlEvent(self, ctrl=32, val=127, chan=0):
+        ctrlMsg = ControlParams(ctrl, val, chan)
+        self.port.ControlOut(ctrlMsg) 
+
 
     def Flush(self):
         pass
@@ -284,14 +286,17 @@ class MessageStreamRT(threading.Thread):
 
 def TestMidiPolyphony(port):
     midiStream = MIDIStreamRT(port)
-    note = midiStream.NoteEvent2
+    noteOut = midiStream.NoteEvent2
+    ctrlOut = midiStream.ControlEvent
 
     midiStream.Start()
 
     for i in range(0, 3):
-        note(60, 100, 1, 1)
-        note(64, 100, 1, 1)
-        note(67, 100, 1, 1)
+        noteOut(60, 100, 1, 1)
+        noteOut(64, 100, 1, 1)
+        noteOut(67, 100, 1, 1)
+        ctrlOut(1, 127)
+
         time.sleep(2)
 
     midiStream.WaitForStreamEnd()
@@ -340,7 +345,7 @@ def TimingTest(midiPort):
 def TestMidiPort():
     midiPort = MIDIPort()
     midiPort.PrintDevices(OUTPUT)
-    midiPort.OpenNamed("IAC Driver Virtual MIDI Port 1")
+    midiPort.OpenNamed("IAC Driver Bus 1")
     TestMidiPolyphony(midiPort)
     midiPort.Close()
 
@@ -357,13 +362,6 @@ def TestCSoundPort():
 
 if __name__ == '__main__':
 
-    testCase = '0'
     print('IO Port Test')
-    testCase = input("Select 1:MIDI port, 2:Csound port... ")
-
-    if (testCase == '1'):
-        TestMidiPort()
-    else:
-        TestCSoundPort()
-
+    TestMidiPort()
     print("test complete.")

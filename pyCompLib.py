@@ -1,4 +1,4 @@
-from scipy import interpolate ,random
+from scipy import interpolate
 import numpy as np
 import threading
 import datetime
@@ -137,7 +137,7 @@ def syncGesture(elapsedTime, length, rate, key, keyrange, mintempo, maxtempo,min
         k = key + random(keyrange)
         amp = interpRange( elapsedTime, mid, maxamp, length, minamp)
         dur = interpList( elapsedTime, [(0, mintempo), (mid, maxtempo), (length, mintempo)])
-        note(k, amp*127,  dur)
+        noteOut(k, amp*127,  dur)
         #print 'elapsedTime: {0}, key: {1}, amp: {2}, dur: {3}' .format(elapsedTime, k, a, d)
         #print 'interpGesture - Time: {0}, wait: {1}, elapsedTime: {2}' .format(midiPort.GetTime(), rate * d, elapsedTime)
         return dur
@@ -152,16 +152,36 @@ def spawnGesture(elapsedTime, length, key, keyrange):
         dur = between(.25, 1)
         amp = int(between(75, 110))
         
-        note(k, amp, dur)
+        noteOut(k, amp, dur)
         noteInterval = interpRange( elapsedTime, 0, 0, length, 10)
         
         m = int(k + noteInterval)
-        note(m, amp, dur)
+        noteOut(m, amp, dur)
         
         print ('interpGesture - Time: {0}, note: {1}, {2}' .format(midiPort.GetTime(), k, m))
         return dur
     return DONE
 
+
+@ spawn
+def spawnGestureWithModulation(elapsedTime, length, key, keyrange):
+    if (elapsedTime < length):
+        k = int(key + random(keyrange))
+        #dur = .25
+        dur = between(.25, 1)
+        amp = int(between(75, 110))
+        
+        midiStream.NoteEvent2(k, amp, dur)
+        noteInterval = interpRange( elapsedTime, 0, 0, length, 10)
+        ctrlValue = interpRange( elapsedTime, 0, 0, length, 127)
+
+        m = int(k + noteInterval)
+        midiStream.NoteEvent2(m, amp, dur)
+        midiStream.ControlEvent(1, ctrlValue)
+        
+        print ('interpGesture - Time: {0}, note: {1}, {2}  ctrl: {3}'.format(midiPort.GetTime(), k, m, int(ctrlValue)))
+        return dur
+    return DONE
 
 duration = 0
 
@@ -170,13 +190,15 @@ if __name__ == '__main__':
     
     midiPort = MIDIPort()    
     midiPort.PrintDevices(OUTPUT)
-    midiPort.Open(1)
+    midiPort.OpenNamed("IAC Driver Bus 1")
     
     midiStream = MIDIStreamRT(midiPort)
     midiStream.Start()
     
-    note = midiStream.NoteEvent2
-    
+   # noteOut = midiStream.NoteEvent2
+    #ctrlOut = midiStream.ControlEvent
+
+
     # setup our gesture
     elapsedTime = 0; length= 10; rate = .2
     key = 84; keyrange= 12
@@ -185,8 +207,9 @@ if __name__ == '__main__':
     mid = (.2 * length) + random( .6 * length)    # random mid point between 20 and 80 percent of the gesture
     
     #syncGesture(elapsedTime, length, rate, key, keyrange, mintempo, maxtempo,minamp, maxamp, mid)
-    spawnGesture(elapsedTime, length, key, keyrange)
-    
+    #spawnGesture(elapsedTime, length, key, keyrange)
+    spawnGestureWithModulation(elapsedTime, length, key, keyrange)
+
     #wait until finished
     time.sleep(length+1) #wait for notes to finish playing
     #midiStream.WaitForStreamEnd()

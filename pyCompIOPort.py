@@ -294,8 +294,8 @@ class MIDIPort(IOPort):
 
     def ControlOut(self, params):
         timestamp = self.GetTime()
-        note_message = [0x90, (int)(params.key), (int)(params.vel)]  # channel 1, note, velocity
-        self.midiOut.send_message(note_message)
+        control_message = [0xB0, (int)(params.ctrl), (int)(params.value)]  
+        self.midiOut.send_message(control_message)
 
     def GetTime(self):
         deltaTime = datetime.datetime.now() - self.startTime
@@ -396,3 +396,13 @@ class CSoundPort(IOPort):
         return deltaTime.total_seconds() * 1000
 
 
+# //////////////////////////////////////////////////////////////////////////////
+
+if __name__ == '__main__':
+    midiPort = MIDIPort()
+    midiPort.OpenNamed("IAC Driver Bus 1")
+    midiPort.NoteOut(NoteParams(60, 100, 1))
+    midiPort.ControlOut(ControlParams(1, 110, 1))
+    time.sleep(2)
+    midiPort.NoteOut(NoteParams(60, 0, 1))
+    midiPort.Close()
