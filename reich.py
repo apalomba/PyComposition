@@ -5,14 +5,6 @@ keys = ["e-4", "f#-4", "b-4", "c#-5", "d-5", "f#-4", "e-4", "c#-5", "b-4", "f#-4
 keyPattern = Cycle(keys) 
 keyPattern2 = Cycle(keys) 
 
-@ spawn
-def pianoPhase(elapsedTime, length, inputKeys, rate):
-    if (elapsedTime < length):
-        #p = m21pitch.Pitch(inputKeys.Next())
-        p = MidiStringToInt(inputKeys.Next())
-        note(p, between(80, 110), rate)
-        return rate
-    return DONE      
 
 # Converts MIDI note name to MIDI not number
 def MidiStringToInt(midstr):
@@ -32,14 +24,23 @@ def MidiStringToInt(midstr):
     answer += (int(midstr[-1]))*12
     return answer
 
+
+@ spawn
+def pianoPhase(elapsedTime, length, inputKeys, rate):
+    if (elapsedTime < length):
+        #p = m21pitch.Pitch(inputKeys.Next())
+        p = MidiStringToInt(inputKeys.Next())
+        theScore.noteOut(p, between(80, 110), rate)
+        return rate
+    return DONE     
+
+    
 #///////////////////////////////////////////////////////////////////////////////////////////////////////////
     
 #create out score environment and bind it to our physical port
 theScore = Score()
 theScore.OpenMidiPortNamed("IAC Driver Bus 1")
 theScore.OpenStream()
-
-note = theScore.noteOut #for convenience
 
 # play our gesture
 elapsedTime = 0
