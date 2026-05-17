@@ -74,7 +74,7 @@ class ProcessManager(object):
         
     def SetWaitInterval(self, processID, time):
         ''' Sets wait interval that the thread will sleep'''
-        if(processID > self.ProcessQ.count) :
+        if(processID > len(self.ProcessQ)) :
             return
           
         p = (Process)(self.ProcessQ[processID-1])
