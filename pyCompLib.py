@@ -158,7 +158,7 @@ def spawnGesture(elapsedTime, length, key, keyrange):
         m = int(k + noteInterval)
         noteOut(m, amp, dur)
         
-        print ('interpGesture - Time: {0}, note: {1}, {2}' .format(midiPort.GetTime(), k, m))
+        print ('interpGesture - Time: {0}, note: {1}, {2}' .format(port.GetTime(), k, m))
         return dur
     return DONE
 
@@ -179,7 +179,7 @@ def spawnGestureWithModulation(elapsedTime, length, key, keyrange):
         midiStream.NoteEvent2(m, amp, dur)
         midiStream.ControlEvent(1, ctrlValue)
         
-        print ('interpGesture - Time: {0}, note: {1}, {2}  ctrl: {3}'.format(midiPort.GetTime(), k, m, int(ctrlValue)))
+        print ('interpGesture - Time: {0}, note: {1}, {2}  ctrl: {3}'.format(port.GetTime(), k, m, int(ctrlValue)))
         return dur
     return DONE
 
@@ -188,7 +188,7 @@ duration = 0
    
 if __name__ == '__main__':
     
-    midiPort = MIDIPort()    
+    port = MIDIPort()    
     midiPort.PrintDevices(OUTPUT)
     midiPort.OpenNamed("IAC Driver Bus 1")
     

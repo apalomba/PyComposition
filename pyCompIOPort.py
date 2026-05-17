@@ -2,10 +2,12 @@ try:
     import rtmidi
 except:
     print('Failed to import rtmidi')
+    
 try:
-    import csnd6
-except:
-    print('Failed to import csnd6.')
+    from libcsound import *
+except ImportError:
+    print('Failed to import libcsound.')
+
 import time
 import EventScheduler
 import datetime
@@ -17,7 +19,7 @@ OUTPUT = 1
 defaultCSD = '''<CsoundSynthesizer>
 <CsOptions>
 ; Select audio/midi flags here according to platform
-;-odac0         ;; -iadc         ;;;RT audio I/O
+-odac0         ;; -iadc         ;;;RT audio I/O
 </CsOptions>
 <CsInstruments>
 
@@ -166,8 +168,7 @@ class MIDIEventQueue():
 
     def Flush(self):
         ''' remove all notes from queue '''
-        for i in range(self.theQ.count()):
-            self.theQ.pop(0)
+        self.theQ = []
 
     def SortEvents(self):
         self.theQ = sorted(self.theQ, key=lambda param: param[eEventParams.TIME])  # sort on time
@@ -352,7 +353,7 @@ class CSoundPort(IOPort):
         self.latency = 1000  # used by pypm to specify MIDI latecny, does not seem to have any effect
         self.midiOut = None
         self.pyext = None  # if we are in a Max environment, this will be set to pyext.MaxPyExt()
-        self.csound = csnd6.Csound()
+        self.csound = Csound()
         self.startTime = datetime.datetime.now()
         self.performance = None
 
@@ -360,36 +361,35 @@ class CSoundPort(IOPort):
         print("CSoundPort:Open")
         self.startTime = datetime.datetime.now()
         if (csdFile is None):
-            res = self.csound.CompileCsdText(defaultCSD)
+            res = self.csound.compileCsdText(defaultCSD)
         else:
-            res = self.csound.Compile(csdFile)
+            res = self.csound.compile(csdFile)
 
-        self.performance = csnd6.CsoundPerformanceThread(self.csound)
-        self.csound.Start()
-        self.performance.Play()
+        self.performance = self.csound.performanceThread()
+        self.csound.start()
+        self.performance.play()
 
     def Close(self):
         print("CSoundPort:Close")
-        self.performance.Stop()
-        self.performance.Join()
-        self.csound.Stop()
+        self.performance.stop()
+        self.performance.join()
+        self.csound.stop()
 
     def PrintDevices(self, InOrOut):
-        print(csnd6.version_info)
+        print(self.csound.version_info)
 
     def NoteOut(self, params):
         '''' this will send a note to our csound port'''
         timestamp = self.GetTime()
         # print 'CSoundPort:NoteOut {0}, {1}'.format(timestamp, params.Print())
-        self.csound.InputMessage("i1 0 .5")
+        self.csound.inputMessageAsync("i1 0 1")
 
-    def CtrlOut(self, params):
-        timestamp = self.port.GetTime()  # use portMidi for timing
-        ctrlStr = 'note {0} {1} {2}'.format(params.ctrl, params.value, params.chan)
-        if (self.pyext != None):
-            self.pyext.Write([[[eMidiCommands.CNTRL, params.ctrl, params.value], timestamp]])  # send control
-        else:
-            print('control: {0}'.format(ctrlStr))
+    def ControlOut(self, params):
+        # In csound we don't use control messages, we use pfields to pass values in to our instrument 
+        #timestamp = self.GetTime()  # use portMidi for timing
+        #ctrlStr = 'i1 0 .5 ' + str(params.value) # this will send the control message to csound
+        #self.csound.inputMessage(ctrlStr)
+        pass
 
     def GetTime(self):
         deltaTime = datetime.datetime.now() - self.startTime
@@ -399,10 +399,22 @@ class CSoundPort(IOPort):
 # //////////////////////////////////////////////////////////////////////////////
 
 if __name__ == '__main__':
-    midiPort = MIDIPort()
-    midiPort.OpenNamed("IAC Driver Bus 1")
-    midiPort.NoteOut(NoteParams(60, 100, 1))
-    midiPort.ControlOut(ControlParams(1, 110, 1))
-    time.sleep(2)
-    midiPort.NoteOut(NoteParams(60, 0, 1))
-    midiPort.Close()
+
+    print("Port Test\n Select 1 for MIDI or 2 for CSound    ")
+    print("Enter your choice: ")
+    choice = input()
+    if choice == "1":
+        port = MIDIPort()
+        port.OpenNamed("IAC Driver Bus 1")
+        port.NoteOut(NoteParams(60, 100, 1))
+        port.ControlOut(ControlParams(1, 110, 1))
+        time.sleep(1)
+        port.NoteOut(NoteParams(60, 0, 1))
+    elif choice == "2":
+        port = CSoundPort()
+        port.Open(None)
+        time.sleep(1)
+        port.NoteOut(NoteParams(60, 100, 1))
+        time.sleep(1)
+
+    port.Close()

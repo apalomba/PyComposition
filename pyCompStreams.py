@@ -6,7 +6,7 @@ import threading
 class MIDIStream(threading.Thread):
     def __init__(self, Port, realTime=False):
         ''' MIDIStream: (Port: midi port to use, realTime: process events in real time'''
-        super().__init__(self)
+        super().__init__()
         self.midiPort = Port  # reference to the port we will be using for output
         self.midiEventQ = MIDIEventQueue()
         self.bStop = False
@@ -22,6 +22,8 @@ class MIDIStream(threading.Thread):
                     self.ProcessQ_RealTime()
                 else:
                     self.ProcessQ_NonRealTime()
+            else:
+                time.sleep(0.01)
 
     def ProcessQ_Realtime(self):
         # print 'MIDIStream: ProcessQ_Realtime ({0})'.format(self.midiPort .GetTime())
@@ -364,4 +366,5 @@ if __name__ == '__main__':
 
     print('IO Port Test')
     TestMidiPort()
+    #TestCSoundPort()
     print("test complete.")
