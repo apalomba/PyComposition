@@ -19,7 +19,7 @@ OUTPUT = 1
 defaultCSD = '''<CsoundSynthesizer>
 <CsOptions>
 ; Select audio/midi flags here according to platform
--odac0         ;; -iadc         ;;;RT audio I/O
+;-odac0         ;; -iadc         ;;;RT audio I/O
 </CsOptions>
 <CsInstruments>
 
@@ -348,12 +348,14 @@ class MaxPort(IOPort):
 class CSoundPort(IOPort):
     """ Represents a port that will send data to max"""
 
-    def __init__(self):
+    def __init__(self, options = '-odac0'):
         self.currentMidiPort = -1  # not used in MaxPort
         self.latency = 1000  # used by pypm to specify MIDI latecny, does not seem to have any effect
         self.midiOut = None
         self.pyext = None  # if we are in a Max environment, this will be set to pyext.MaxPyExt()
         self.csound = Csound()
+        # Output to the default audio device, using the default audio backend
+        self.csound.setOption(options)
         self.startTime = datetime.datetime.now()
         self.performance = None
 
@@ -411,7 +413,7 @@ if __name__ == '__main__':
         time.sleep(1)
         port.NoteOut(NoteParams(60, 0, 1))
     elif choice == "2":
-        port = CSoundPort()
+        port = CSoundPort("-odac1")
         port.Open(None)
         time.sleep(1)
         port.NoteOut(NoteParams(60, 100, 1))
